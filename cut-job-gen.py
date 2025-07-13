@@ -65,59 +65,87 @@ for dev_w, dev_l in zip(deviation_width, deviation_length):
         if side == "B":
             dev_w = - dev_w
 
+        sub_sheet_corner_w = dev_w + (sheet_width - finished_width)/2 + finished_width
+        sub_sheet_corner_l = dev_l + (sheet_length - finished_length)/2
+
         #Draw inner bleed box
-        dwg.add(dwg.rect(insert=(f"{dev_w + (sheet_width - finished_width)/2 + bleed/2}mm", f"{dev_l + (sheet_length - finished_length)/2 + bleed/2}mm"),
+        dwg.add(dwg.rect(insert=(f"{sub_sheet_corner_w - finished_width + bleed/2}mm", f"{sub_sheet_corner_l + bleed/2}mm"),
                         size=(f"{finished_width - bleed}mm", f"{finished_length - bleed}mm"),
                         fill='none', stroke=svgwrite.rgb(0, 159, 228), stroke_width=f"{bleed}mm")) #blue
 
         #Draw outer bleed box
-        dwg.add(dwg.rect(insert=(f"{dev_w + (sheet_width - finished_width)/2 - bleed/2}mm", f"{dev_l + (sheet_length - finished_length)/2 - bleed/2}mm"),
+        dwg.add(dwg.rect(insert=(f"{sub_sheet_corner_w - finished_width - bleed/2}mm", f"{sub_sheet_corner_l - bleed/2}mm"),
                         size=(f"{finished_width + bleed}mm", f"{finished_length + bleed}mm"),
                         fill='none', stroke=svgwrite.rgb(177, 6, 50), stroke_width=f"{bleed}mm")) #red
 
         # Draw splitlines on finished sheet to mark crease / fold positions
         splitlines = [1/4, 1/3, 1/2, 2/3, 3/4]
         for fraction in splitlines:
-            dwg.add(dwg.line((f"{dev_w + (sheet_width - finished_width)/2}mm", f"{dev_l + (sheet_length - finished_length)/2 + finished_length * fraction}mm"),
-                            (f"{dev_w + (sheet_width - finished_width)/2 + finished_width}mm", f"{dev_l + (sheet_length - finished_length)/2 + finished_length * fraction}mm"),
+            dwg.add(dwg.line((f"{sub_sheet_corner_w - finished_width}mm", f"{sub_sheet_corner_l + finished_length * fraction}mm"),
+                            (f"{sub_sheet_corner_w}mm", f"{sub_sheet_corner_l + finished_length * fraction}mm"),
                             stroke=svgwrite.rgb(0, 159, 228), stroke_width=f"{bleed}mm")) #blue
-            dwg.add(dwg.line((f"{dev_w + (sheet_width - finished_width)/2}mm", f"{dev_l + (sheet_length - finished_length)/2 + finished_length * fraction}mm"),
-                            (f"{(dev_w + sheet_width - finished_width)/2 + finished_width}mm", f"{dev_l + (sheet_length - finished_length)/2 + finished_length * fraction}mm"),
+            dwg.add(dwg.line((f"{sub_sheet_corner_w - finished_width}mm", f"{sub_sheet_corner_l + finished_length * fraction}mm"),
+                            (f"{sub_sheet_corner_w}mm", f"{sub_sheet_corner_l + finished_length * fraction}mm"),
                             stroke="black", stroke_dasharray="2,1", stroke_width="0.25mm")) #black dashed
 
         # Draw finished sheet outline
-        dwg.add(dwg.rect(insert=(f"{dev_w + (sheet_width - finished_width)/2}mm", f"{dev_l + (sheet_length - finished_length)/2}mm"),
+        dwg.add(dwg.rect(insert=(f"{sub_sheet_corner_w - finished_width}mm", f"{sub_sheet_corner_l}mm"),
                         size=(f"{finished_width}mm", f"{finished_length}mm"),
                         fill='none', stroke="black", stroke_dasharray="2,1", stroke_width="0.25mm")) #black dashed
 
         # Add page number
         dwg.add(dwg.text(str(sheet_no) + side, 
-                         insert=(f"{dev_w + (sheet_width - finished_width)/2 + finished_width/2}mm", f"{dev_l + (sheet_length - finished_length)/2 + finished_length/8}mm"),
+                         insert=(f"{sub_sheet_corner_w - finished_width/2}mm", f"{sub_sheet_corner_l + finished_length/8}mm"),
                          text_anchor="middle",
                          font_size="60pt",
                          font_family="Verdana",
                          fill="black"))
 
+        # Add filename
+        dwg.add(dwg.text("<" + svg_filename + ">", 
+                    insert=(f"{sub_sheet_corner_w - finished_width + bleed + 1}mm", f"{sub_sheet_corner_l + bleed + 5}mm"),
+                    text_anchor="start",
+                    font_size="12pt",
+                    font_family="Verdana",
+                    fill="grey"))
+
         # Add deviation indicator
         if(random_deviation):
-            # Define a marker for the arrowhead
-            arrow = dwg.marker(id="arrow",
-                   insert=(10, 5), size=(10, 10),
-                   orient="auto", markerUnits="strokeWidth")
-            arrow.add(dwg.path(d="M 0 0 L 10 5 L 0 10 z", fill="black"))
-            dwg.defs.add(arrow)
 
             arrow_length = deviation_range * 10
-            # Draw a line with the arrow marker at the end
-            dwg.add(dwg.line(start=(f"{dev_w + (sheet_width - finished_width)/2 + finished_width - 1.5*arrow_length}mm", f"{dev_l + (sheet_length - finished_length)/2 + 1.5*arrow_length}mm"), 
-                             end=(f"{dev_w + (sheet_width - finished_width)/2 + finished_width - 1.5*arrow_length + arrow_length*dev_w/deviation_range}mm", f"{dev_l + (sheet_length - finished_length)/2 + 1.5*arrow_length}mm"),
+
+            dev_marker_w = sub_sheet_corner_w - 1.5*arrow_length
+            dev_marker_l = sub_sheet_corner_l + 1.5*arrow_length
+
+            dwg.add(dwg.circle((f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
+                            r = f"{arrow_length}mm",
+                            fill=svgwrite.rgb(91, 204, 255)
+                            ))
+
+            dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
+                             end=(f"{dev_marker_w + arrow_length*dev_w/deviation_range}mm", f"{dev_marker_l}mm"),
                             stroke="black", stroke_width="1mm",
-                            marker_end=arrow.get_funciri()))
+                            ))
             
-            dwg.add(dwg.line(start=(f"{dev_w + (sheet_width - finished_width)/2 + finished_width - 1.5*arrow_length}mm", f"{dev_l + (sheet_length - finished_length)/2 + 1.5*arrow_length}mm"), 
-                    end=(f"{dev_w + (sheet_width - finished_width)/2 + finished_width - 1.5*arrow_length}mm", f"{dev_l + (sheet_length - finished_length)/2 + 1.5*arrow_length + arrow_length*dev_l/deviation_range}mm"),
+            dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"),
+                    end=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length*dev_l/deviation_range}mm"),
                     stroke="black", stroke_width="1mm",
-                    marker_end=arrow.get_funciri()))
+                    ))
+            
+            # Print deviation values
+            dwg.add(dwg.text(str(-dev_w) + "  mm", 
+                    insert=(f"{dev_marker_w - arrow_length - 5}mm", f"{dev_marker_l + 2.5}mm"),
+                    text_anchor="end",
+                    font_size="16pt",
+                    font_family="Verdana",
+                    fill="black"))
+            
+            dwg.add(dwg.text(str(dev_l) + "  mm", 
+                    insert=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length + 10}mm"),
+                    text_anchor="middle",
+                    font_size="16pt",
+                    font_family="Verdana",
+                    fill="black"))
 
         # Save SVG
         dwg.save()
