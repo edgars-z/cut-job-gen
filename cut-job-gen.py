@@ -16,9 +16,15 @@ finished_width, finished_length = 297, 420
 bleed = 3
 
 #Configure script
-crop_marks = False
-reg_mark = False
 num_sheets = 5 # sheets are double sided (1 sheet = 2 pages)
+crop_marks = False
+
+reg_mark = True
+reg_mark_thickness = 1 # mm
+reg_mark_length = 10 # mm
+reg_mark_pos_l = 5 # mm from sheet edge in process direction
+reg_mark_pos_w = 5 # mm from sheet edge across process direction
+
 random_deviation = True # random offset will be applied to each sheet
 deviation_range = 3 # +/- mm
 
@@ -65,6 +71,7 @@ for dev_w, dev_l in zip(deviation_width, deviation_length):
         if side == "B":
             dev_w = - dev_w
 
+        # Calculate top right corner of the sub-sheet
         sub_sheet_corner_w = dev_w + (sheet_width - finished_width)/2 + finished_width
         sub_sheet_corner_l = dev_l + (sheet_length - finished_length)/2
 
@@ -108,6 +115,19 @@ for dev_w, dev_l in zip(deviation_width, deviation_length):
                     font_size="12pt",
                     font_family="Verdana",
                     fill="grey"))
+
+        # Add registration mark in the top right corner
+        if(reg_mark):
+            dwg.add(dwg.line(start=(f"{dev_w + sheet_width - reg_mark_pos_w}mm", f"{dev_l + reg_mark_pos_l + reg_mark_thickness/2}mm"), 
+                    end=(f"{dev_w + sheet_width - reg_mark_pos_w - reg_mark_length}mm", f"{dev_l + reg_mark_pos_l + reg_mark_thickness/2}mm"),
+                    stroke="black", stroke_width=f"{reg_mark_thickness}mm",
+                    ))
+            
+            dwg.add(dwg.line(start=(f"{dev_w + sheet_width - reg_mark_pos_w - reg_mark_thickness/2}mm", f"{dev_l + reg_mark_pos_l}mm"), 
+                    end=(f"{dev_w + sheet_width - reg_mark_pos_w - reg_mark_thickness/2}mm", f"{dev_l + reg_mark_pos_l + reg_mark_length}mm"),
+                    stroke="black", stroke_width=f"{reg_mark_thickness}mm",
+                    ))
+
 
         # Add deviation indicator
         if(random_deviation):
