@@ -1,5 +1,6 @@
 import os
 import random
+import math
 import shutil
 
 import svgwrite
@@ -24,7 +25,7 @@ bleed = 3 # mm width of printed borders
 center_job_on_sheet = True # 
 job_offset_w, job_offset_l = 10, 10 #mm. If center_job_on_sheet is False, then these values will be used from top right corner
 
-num_sheets = 1 # sheets are double sided (1 sheet = 2 pages)
+num_sheets = 50 # sheets are double sided (1 sheet = 2 pages)
 crop_marks = False # add crop marks outside of finished sheets to show cutting lines
 
 reg_mark = True # add registration mark in the top right corner for camera
@@ -33,7 +34,7 @@ reg_mark_length = 10 # mm
 reg_mark_pos_l = 5 # mm from top sheet edge in process direction
 reg_mark_pos_w = 5 # mm from right sheet edge across process direction
 
-random_deviation = False # random offset will be applied to each sheet
+random_deviation = True # random offset will be applied to each sheet
 deviation_range = 3 # +/- mm
 
 if num_sub_sheets_w * num_sub_sheets_l > 1:
@@ -48,7 +49,7 @@ else:
 if(random_deviation):
     deviation_width = [0] + [round(random.uniform(-deviation_range, deviation_range),3) for _ in range(num_sheets-1)]
     deviation_length = [0] + [round(random.uniform(-deviation_range, deviation_range),3) for _ in range(num_sheets-1)]
-    filename += "_with_deviation"
+    filename += "_with_" + str(deviation_range) + "mm_deviation"
 else:
     deviation_width = [0] * num_sheets 
     deviation_length = [0] * num_sheets
@@ -132,62 +133,88 @@ for dev_w, dev_l in zip(deviation_width, deviation_length):
                                 size=(f"{finished_width}mm", f"{finished_length}mm"),
                                 fill='none', stroke="black", stroke_dasharray="2,1", stroke_width="0.25mm")) #black dashed
 
+                # Add filename
+                filename_text = "<" + svg_filename + ">"
+                annotation_font_size = min(4, (0.75*(finished_width - 2 * bleed)) / (0.6 * len(filename_text))) # in mm. Scale font size to fit 3/4 finished sheet width
+                dwg.add(dwg.text(filename_text, 
+                            insert=(f"{sub_sheet_corner_w - finished_width + bleed + 1}mm", f"{sub_sheet_corner_l + bleed + annotation_font_size + 1}mm"),
+                            text_anchor="start",
+                            font_size=f"{annotation_font_size}mm",
+                            font_family="Verdana",
+                            fill="grey"))
+
                 # Add page number
                 if num_sub_sheets_w * num_sub_sheets_l > 1:
                     sheet_no_text = str(sheet_no) + "." + str(sub_sheet_no) + side
                 else:
                     sheet_no_text = str(sheet_no) + side
-
+                title_font_size = min(30, finished_length/4 - 1.5*bleed - annotation_font_size) # in mm. Scale font size to fit 1/4 of finished sheet length
                 dwg.add(dwg.text(sheet_no_text, 
-                                insert=(f"{sub_sheet_corner_w - finished_width/2}mm", f"{sub_sheet_corner_l + finished_length/8 + 10}mm"),
-                                text_anchor="middle",
-                                font_size="60pt",
+                                insert=(f"{sub_sheet_corner_w - finished_width/2}mm", f"{sub_sheet_corner_l + finished_length/8 + title_font_size/2}mm"),
+                                text_anchor="end",
+                                font_size=f"{title_font_size}mm",
                                 font_family="Verdana",
                                 fill="black"))
-
-                # Add filename
-                dwg.add(dwg.text("<" + svg_filename + ">", 
-                            insert=(f"{sub_sheet_corner_w - finished_width + bleed + 1}mm", f"{sub_sheet_corner_l + bleed + 5}mm"),
-                            text_anchor="start",
-                            font_size="12pt",
-                            font_family="Verdana",
-                            fill="grey"))
 
                 # Add deviation indicator
                 if(random_deviation):
 
-                    arrow_length = deviation_range * 10
+                    arrow_length = min(deviation_range * 10, ((finished_length/4 - 1.5*bleed - annotation_font_size)/2)/1.1)
 
-                    dev_marker_w = sub_sheet_corner_w - 1.5*arrow_length
-                    dev_marker_l = sub_sheet_corner_l + 1.5*arrow_length
+                    dev_marker_w = sub_sheet_corner_w - bleed - 1.1*arrow_length
+                    dev_marker_l = sub_sheet_corner_l + bleed + 1.1*arrow_length
 
+                    arrow_stroke = max(0.25, min(arrow_length*0.03, 1))
+
+                    # Draw outer bullseye ring
+                    bullseye_fill=svgwrite.rgb(91, 204, 255)
                     dwg.add(dwg.circle((f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
                                     r = f"{arrow_length}mm",
-                                    fill=svgwrite.rgb(91, 204, 255)
-                                    ))
-
-                    dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
-                                    end=(f"{dev_marker_w + arrow_length*dev_w/deviation_range}mm", f"{dev_marker_l}mm"),
-                                    stroke="black", stroke_width="1mm",
+                                    fill=bullseye_fill
                                     ))
                     
-                    dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"),
-                            end=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length*dev_l/deviation_range}mm"),
-                            stroke="black", stroke_width="1mm",
-                            ))
+                    if(deviation_range > 2):
+                        step = 1 # mm for each colour change in bullseye plot
+                    else:
+                        step = 0.5 # mm for each colour change in bullseye plot
+                    
+                    bullseye_step = (arrow_length * (math.floor(deviation_range/step)*step)/deviation_range) / ((math.floor(deviation_range/step)*step)/step)
+                    # Draw inner rings
+                    for i in range(math.ceil(deviation_range/step)-1, 0, -1):
+                        if(bullseye_fill==svgwrite.rgb(91, 204, 255)):
+                            bullseye_fill=svgwrite.rgb(255, 255, 255)
+                        else:
+                            bullseye_fill=svgwrite.rgb(91, 204, 255)
+                        dwg.add(dwg.circle((f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
+                                        r = f"{i * bullseye_step}mm",
+                                        fill=bullseye_fill
+                                        ))
+
+                    # Draw deviation arrows on top of bullseye
+                    if(dev_w!=0):
+                        dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"), 
+                                        end=(f"{dev_marker_w + arrow_length*dev_w/deviation_range}mm", f"{dev_marker_l}mm"),
+                                        stroke="black", stroke_width=f"{arrow_stroke}mm",
+                                        ))
+                    
+                    if(dev_l!=0):
+                        dwg.add(dwg.line(start=(f"{dev_marker_w}mm", f"{dev_marker_l}mm"),
+                                end=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length*dev_l/deviation_range}mm"),
+                                stroke="black", stroke_width=f"{arrow_stroke}mm",
+                                ))
                     
                     # Print deviation values
                     dwg.add(dwg.text(str(-dev_w) + "  mm", 
-                            insert=(f"{dev_marker_w - arrow_length - 5}mm", f"{dev_marker_l + 2.5}mm"),
+                            insert=(f"{dev_marker_w - arrow_length * 1.1}mm", f"{dev_marker_l + annotation_font_size/2}mm"),
                             text_anchor="end",
-                            font_size="16pt",
+                            font_size=f"{annotation_font_size}mm",
                             font_family="Verdana",
                             fill="black"))
                     
                     dwg.add(dwg.text(str(dev_l) + "  mm", 
-                            insert=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length + 10}mm"),
+                            insert=(f"{dev_marker_w}mm", f"{dev_marker_l + arrow_length + annotation_font_size + 1}mm"),
                             text_anchor="middle",
-                            font_size="16pt",
+                            font_size=f"{annotation_font_size}mm",
                             font_family="Verdana",
                             fill="black"))
         
