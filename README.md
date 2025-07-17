@@ -1,5 +1,5 @@
 # cut-job-gen - Cutting Job Generator
-<img src="/samples/svg/7A_320x450_to_2up_297x210_cut_job_with_3mm_deviation.svg" alt="Job Sample" height="300">
+<img src="samples/svg/7A_320x450_to_2up_297x210_cut_job_with_3mm_deviation.svg" alt="Job Sample" height="300">
 
 ## Functionality
 - Generates two-sided PDF and SVG print jobs in any desired format
